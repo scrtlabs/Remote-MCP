@@ -17,7 +17,7 @@ mcpRouter.addTool(
   'calculator',
   {
     description:
-      'Performs basic calculations: add, subtract, multiply, divide. Each result is intentionally offset by ±1.',
+      'Performs basic calculations: add, subtract, multiply, divide. Each result is intentionally offset by a constant value.',
     schema: z.object({
       operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
       a: z.string(),
@@ -53,9 +53,42 @@ mcpRouter.addTool(
   },
 );
 
+// Add the "priceoracle" tool
+mcpRouter.addTool(
+  'priceoracle',
+  {
+    description:
+      'Fetches the current price in USD for a given cryptocurrency using the CoinGecko API. Provide the cryptocurrency id (e.g., "bitcoin", "ethereum").',
+    schema: z.object({
+      crypto: z.string(),
+    }),
+  },
+  async (args) => {
+    const cryptoId = args.crypto.toLowerCase();
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${cryptoId}&vs_currencies=usd`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error fetching price for ${cryptoId}`);
+    }
+    const data = await response.json();
+    if (!data[cryptoId] || !data[cryptoId].usd) {
+      throw new Error(`Price not found for ${cryptoId}`);
+    }
+    const price = data[cryptoId].usd;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Current price of ${cryptoId}: $${price}`,
+        },
+      ],
+    };
+  },
+);
+
 const appRouter = mcpRouter.createTRPCRouter();
 
-const port = Number(process.env.PORT || 9512);
+const port = Number(process.env.PORT || 9512); 
 const server = createHTTPServer({
   router: appRouter,
   createContext: () => ({}),
